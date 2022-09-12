@@ -1,0 +1,31 @@
+AAPL , aapl , Apple Inc , Apple@
+AMGN , amen , Amgen Inc , Amgen@
+AXP , axp, American Express Company , American Express@
+BA , ba ,  Boeing Company , Boeing , Boing@
+CAT , cat , Caterpillar Inc , Caterpillar@
+CRM , crm , Salesforce.com Inc , Salesforce@
+CSCO , csco , Cisco Systems Inc , Cisco@
+CVX , cvx , Chevron Corp , Chevron@
+DIS , dis , Walt Disney Company , Disney@
+DOW , dow , Dow Inc , Dow@
+GS , gs , Goldman Sachs Group , Goldman Sachs@
+HD , hd , Home Depot@
+HON , hon , Honeywell International Inc , Honeywell@
+IBM , ibm , International Business Machines@
+INTC , intc , Intel Corp , Intel@
+JNJ , jnj , Johnson & Johnson@
+JPM , jpm , JP Morgan Chase & Company, JP Morgan@
+KO , ko , Coca-Cola Company , Coca-Cola , Coke@
+MCD , mcd , McDonald's Corp, McDonalds@
+MMM , mmm , 3M Company , 3M@
+MRK , mrk , Merck & Company@
+MSFT , msft , Microsoft Corp , Microsoft , Micro@
+NKE , nke , Nike Inc , Nike , Nik@
+PG , pg , Procter & Gamble Company , P&G , Proctor and Gamble@
+TRV , trv , The Travelers Companies Inc , Travelers@
+UNH , unh , Unitedhealth Group Inc , UnitedHealth@
+V ,  v , Visa Inc , Visa@
+VZ , vz , Verizon Communications Inc , Verizon@
+WBA , wba , Walgreens Boots Alliance , Walgreens@
+WMT , wmt , Wal-Mart Stores , Walmart , Wal-mart@
+
