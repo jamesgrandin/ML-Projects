@@ -1,0 +1,196 @@
+---
+title: "Final Project"
+author: "James Grandin"
+date: "12/3/2021"
+output:
+  html_document:
+    df_print: paged
+  word_document: default
+---
+
+In this project, we are tasked with building a classification model that attempts to find predit wether Ozone levels are high or low given particular conditions. One of the simplest and most powerful classification algorithms for building such a model is logistic regression. In general,logistic regression is limited to 2 classes, which is perfect for this problem. If mroe classes were necessary, we could use an alternative algorith, such as decision trees. Logisitic regression models that probability of a certain binomial event exisiting. Its possible to model multiple classes via certain extensions, but that is beyond the scope of this project.
+
+
+Data Collection
+
+First, we must read in the data. For this project, we were given a dataset, but in real life, we may need to create a data pipeline that cleans and standardizes that data for better model performance.
+
+```{r}
+data <- read.csv("~/Desktop/Machine Learning 1/Final Project/ozone-data.csv")
+
+head(data)
+tail(data)
+any(is.na(data))
+dim(data)
+str(data)
+```
+
+Exploratory Data Anaylsis
+
+We can find out alot about a dataset from EDA. In this case barplots, boxplots, and histograms were used to visualize the data. These plots are useful in finding obvious patterns that can not be seen by simply looking at the raw numbers.
+
+Interesting Findings:
+
+1. This dataset contains 60% more low ozone days than high ozone days, as seen by the frequency table.
+2. high Ozone days seem to be more likely on days when relative humidity is between 12% and 20%.
+3. Nitric Oxide and Wind Speed seem to be strongly associated with high ozone, having very small P values.
+
+
+```{r}
+###### EDA ########
+for (j in 1:ncol(data)){
+  
+  if (class(data[[j]]) == "numeric") {
+    par(mfrow=c(1,1))
+    boxplot(data[[j]], main = colnames(data[j]))
+    table <-table(data$Ozone,data[[j]])
+    barplot(table,legend.text=rownames(table), main = colnames(data[j]), 
+            ylab = "Frequency", width=(length(data[[j]]/20)))
+    hist(data[[j]], main = colnames(data[j])) 
+    
+    #pull only pvalue from the wilcox test save space in the console
+    pVal = wilcox.test(data[[j]]~data$Ozone, alternative = 'two.sided')$p.value 
+    
+    if (pVal<=0.05){A = "Association"}else{A="No Association"}
+    print(c(colnames(data[j]),pVal,A))  #print list with variable, pvalue, and association
+    
+  } else { table <-table(data$Ozone,data[[j]])
+    
+    barplot(table,legend.text=rownames(table), main = colnames(data[j]), ylab = "Frequency", las =2)
+  
+    table2 <-table(data[[j]],data$Ozone,useNA="no")
+    pVal2 <- fisher.test(table2, simulate.p.value =TRUE)$p.value
+  
+    if (pVal2<=0.1){B = "Association"}else{B="No Association"}
+    print(c(colnames(data[j]),pVal2,B))
+  }
+}
+```
+
+In this step, we split the dataset into the training, validation, and testing data necessary to properly build the model.
+
+```{r}
+# Data partition
+set.seed(123)
+n <- nrow(data)
+id.split <- sample(x=1:3, size = n, replace =TRUE, prob=c(0.50, 0.25, 0.25))
+data.train <- data[id.split ==1, ]
+data.validate <- data[id.split == 2, ]
+data.test <- data[id.split == 3, ]
+
+# Predictor variables
+X.train <- model.matrix(as.formula(factor(Ozone)~.), data= data.train)[, -1]
+X.validate <- model.matrix(as.formula(factor(Ozone)~.), data= data.validate)[, -1]
+X.test <- model.matrix(as.formula(factor(Ozone)~.), data= data.test)[, -1]
+
+# Outcome variable
+y.train <- data.train$Ozone
+y.validate <- data.validate$Ozone
+y.test <- data.test$Ozone
+
+
+data.pooled <- rbind(data.train,data.validate)
+X.pooled<- model.matrix(as.formula(factor(Ozone)~.), data= data.pooled)[, -1]
+y.pooled<-data.pooled$Ozone
+# Will be using lasso regression to filter out uncorrelated variables 
+# This makes the model more simple and readable 
+#binomial means we are using Logistic Regression which is a much better
+#classifier algorithm compared to linear regression
+```
+
+Model Building 
+
+To generate this model, Lasso regression is used. This algorithm is chosen because there are 14 features in the dataset, which can make the model less easy to read. Lasso regression penalizes uncorrelated variables the most, so it will remove variables that do not have much predictive value. In order the determine the best penalty value, many models are created on a range of penalty values. We examine the MSE and the Miss Rate from all these models and choose the Lamda that minimizes these criteria. We test the model that is trained on the training data against the validation data set in order to verify that the model is not overfit on the training data.
+
+
+```{r}
+library(glmnet)
+Lambda <- seq(0.001, 0.5, length.out = 500)
+
+L <- length(Lambda)
+
+OUT <- matrix (0, L, 3)
+
+for (i in 1:L){
+  #fitting the lasso logistic regression model to the training data
+  fit <- glmnet(x=X.train, y=y.train, family ="binomial", alpha =1, #lasso
+                lambda=Lambda[i], standardize=T, thresh = 1e-07, maxit=1000)
+  #using model to on validation data to determine the best lambda
+  pred <- predict(fit, newx=X.validate, s=Lambda[i], type="response")
+  miss.rate <- mean(y.validate != (pred > 0.5))
+  mse <- mean((y.validate - pred)^2)
+  OUT[i, ] <- c(Lambda[i], miss.rate, mse)
+  
+}
+
+```
+
+Finding Optimum Penalty Value 
+
+According to the MSE and the Missclassification Rate plot, the Lambda that offers the smallest MSE and Missrate is 0.001 or the smallest lambda. This suggests that only a very small penalty is needed (if one is needed at all) in order to properly model this data, meaning the data does not have enough variance as to effect the results of the algorithm. 
+
+```{r}
+# print the MSE, Missclassification rate table corresponding lambda
+head(OUT)
+par(mfrow = c(1,2))
+plot(OUT[, 1], OUT[,2], type = "b", col = "blue", ylab = "Missclassification rate")
+plot(OUT[, 1], OUT[,3], type = "b", col = "red", ylab = "MSE")
+lambda.best <- OUT[which.min(OUT[, 3]), 1]
+miss.rate_Lambda <- OUT[which.min(OUT[, 3]), 2]
+
+```
+
+Final Best Fit Model
+
+After testing and validating the new penalty parameter, we pool the testing and training data and fit the final best fit model on to the dataset. We then evaluate the model on the testing data to determing if it will do a good job at predicting a high or low ozone state based on the predictors.
+
+
+```{r}
+fit.best <- glmnet (x=X.pooled, y=y.pooled, family ="binomial", alpha=1,  #LASSO
+                    lambda = lambda.best, standardize = T, thresh = 1e-07, maxit=1000)
+names(fit.best)
+fit.best$beta # Finding important variables.
+
+
+pred <- predict(fit.best, newx = X.test, s =lambda.best, type="response")
+dim(pred)
+
+```
+
+Evaluation:
+
+The AUC of this model is 0.9715256 and a very low seperatability score meaning that it does a great job at classifying the data.
+The model is 92% accurate. It has a MSE of 0.06047683 and miss.rate of 0.07563025, which is very low compared to the training model.
+It has a sensitivity rating of 0.9124 and a specificity rating of .9406. this means that the model does a great job at labeling both high ozone days (sensitivity) and low ozone days (specificity). Recall is that same as sensitivity, so the same idea follows for this metric. This model also had a very high Precision score, showing that there is a low chance for false positives.
+
+
+
+```{r}
+
+miss.rate <- mean(y.test != (pred > 0.5))
+mse <- mean((y.test - pred)^2)
+
+mse
+miss.rate
+
+library(cvAUC)
+yobs <- y.test
+AUC <- ci.cvAUC(predictions = pred, labels =yobs, folds=1:NROW(data.test), confidence = 0.95)
+AUC
+auc.ci <- round(AUC$ci, digits = 3)
+
+library(verification)
+mod.glm <- verify(obs = yobs, pred = pred)
+roc.plot(mod.glm, plot.thres=NULL)
+text(x=0.7, y=0.2, paste("Area under ROC = ", round(AUC$cvAUC, digits = 3), "with 95% CI (",
+                         auc.ci[1], ",", auc.ci[2], ").", sep = " "), col="blue", cex =1.2)
+
+library(caret)
+pred1 <- ifelse(pred>0.5, 1, 0)
+confusionMatrix(factor(pred1), factor(y.test))
+```
+
+
+OVerall, this model performed exceedingly well. This is likely because we had very clean data filled with features that were highly correlated to the target variable. In other cases, we may not be able to generate a model with such great prediction capabilities.
+
+Thanks for everything this semester Dr. Bhuiyan. It has been a pleasure.
